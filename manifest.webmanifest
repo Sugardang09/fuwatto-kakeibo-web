@@ -1,0 +1,13 @@
+{
+  "id": "./",
+  "name": "ふわっと家計簿",
+  "short_name": "ふわっと家計簿",
+  "description": "毎月の暮らしを、やさしく管理する家計簿",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff7fb",
+  "theme_color": "#fff7fb"
+}
