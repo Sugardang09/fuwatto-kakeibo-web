@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "fuwatto-kakeibo-web-";
-const CACHE_NAME = "fuwatto-kakeibo-web-v2";
+const CACHE_NAME = "fuwatto-kakeibo-web-v3";
 const APP_FILES = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", event => {
