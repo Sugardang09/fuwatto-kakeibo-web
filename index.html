@@ -193,7 +193,7 @@ if(cats.length){
  summaryBox.innerHTML='<div class="category-chart"><svg viewBox="0 0 240 240" role="group" aria-label="費目別支出の割合">'+segments+'</svg><div class="category-chart-center"><small>支出合計</small><strong>'+yen(t)+'</strong></div></div><div class="category-chart-legend">'+legend+'</div><div id="categoryDetail"></div>';
  renderCategoryDetail();
 }else{selectedSummaryCategory="";summaryBox.innerHTML='<div class="empty">支出が登録されると集計されます</div>'}
-
+}
 function renderCategoryDetail(){
  const cat=selectedSummaryCategory,box=document.getElementById("categoryDetail");if(!box||!cat)return;
  const items=monthExpenses().filter(x=>x.category===cat),total=items.reduce((sum,x)=>sum+x.amount,0),subgroups=new Map();
