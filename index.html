@@ -73,7 +73,9 @@ const KEY="fuwatto_kakeibo_v1";
 let data={expenses:[],budgets:{}}, current=new Date(), selectedDate=iso(new Date()), calDate=new Date(), editing=null, chosenCat=CATS[0][1], chartWeekStart=startOfWeek(new Date());
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function monthKey(d=current){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
-function startOfWeek(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}\nfunction shiftWeek(d,n){const x=new Date(d);x.setDate(x.getDate()+n*7);return x}\nfunction weekDateLabel(d){return `${d.getMonth()+1}/${d.getDate()}`}
+function startOfWeek(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
+function shiftWeek(d,n){const x=new Date(d);x.setDate(x.getDate()+n*7);return x}
+function weekDateLabel(d){return `${d.getMonth()+1}/${d.getDate()}`}
 function yen(n){return "¥"+Number(n||0).toLocaleString("ja-JP")}
 let storageReadBlocked=false;
 function load(){
