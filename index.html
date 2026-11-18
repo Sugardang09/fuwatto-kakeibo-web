@@ -88,7 +88,7 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:12p
 <button class="btn primary" style="width:100%;margin-top:16px" id="saveEntry">保存する</button><button class="btn danger" style="width:100%;margin-top:8px;display:none" id="deleteEntry">この支出を削除</button></div></div>
 <div class="modal" id="calendarModal"><div class="sheet"><div class="sheet-head"><h2>📅 日付を選択</h2><button class="close" data-close="calendarModal">×</button></div><div class="calendar-head"><button id="calPrev">‹ 前月</button><b id="calMonth"></b><button id="calNext">翌月 ›</button></div><div class="calendar" id="calendarGrid"></div><div class="formrow" style="margin-top:12px"><button class="btn" id="calToday">今日</button><button class="btn primary" id="calDone">選択した日付で確定</button></div></div></div>
 <script>
-const CATS=[["🍱","食費"],["🛍️","日用品"],["🏠","住居費"],["💡","水道・光熱費"],["📱","通信費"],["🚃","交通費"],["💗","交際費"],["🎮","趣味・娯楽費"],["👗","衣服・美容"],["💊","医療・健康"],["📚","教育"],["📦","その他"]];
+const CATS=[["🍱","食費"],["🛍️","日用品"],["🏠","住居費"],["💡","水道・光熱費"],["📱","通信費"],["🚃","交通費"],["💗","交際費"],["🎡","趣味・娯楽費"],["👗","衣服・美容"],["💊","医療・健康"],["📚","教育"],["📦","その他"]];
 const KEY="fuwatto_kakeibo_v1";
 let data={expenses:[],budgets:{},subcategories:{}}, current=new Date(), selectedDate=iso(new Date()), calDate=new Date(), editing=null, chosenCat=CATS[0][1], chosenSubcat="", chartWeekStart=startOfWeek(new Date());
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
