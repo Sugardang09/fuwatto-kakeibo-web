@@ -186,7 +186,7 @@ if(cats.length){
   const length=x.v/t*circumference,mid=offset+length/2,angle=(mid/circumference)*2*Math.PI-Math.PI/2;
   const labelX=120+58*Math.cos(angle),labelY=120+58*Math.sin(angle);
   const label=length/circumference>=.075?'<text class="category-chart-label" x="'+labelX.toFixed(1)+'" y="'+labelY.toFixed(1)+'">'+esc(x.cat.replace("・",""))+'</text>':"";
-  const circle='<circle class="category-chart-segment '+(x.cat===selectedSummaryCategory?'selected':'')+'" data-summary-category="'+esc(x.cat)+'" tabindex="0" role="button" aria-label="'+esc(x.cat)+' '+yen(x.v)+'" cx="120" cy="120" r="58" fill="none" stroke="'+palette[i%palette.length]+'" stroke-width="32" stroke-dasharray="'+Math.max(0,length-2)+' '+circumference+'" stroke-dashoffset="'+(-offset)+'"></circle>';
+  const circle='<circle class="category-chart-segment '+(x.cat===selectedSummaryCategory?'selected':'')+'" data-summary-category="'+esc(x.cat)+'" tabindex="0" role="button" aria-label="'+esc(x.cat)+' '+yen(x.v)+'" cx="120" cy="120" r="58" fill="none" stroke="'+palette[i%palette.length]+'" stroke-width="32" transform="rotate(-90 120 120)" stroke-dasharray="'+Math.max(0,length-2)+' '+circumference+'" stroke-dashoffset="'+(-offset)+'"></circle>';
   offset+=length;return circle+label;
  }).join("");
  const legend=cats.map((x,i)=>'<button type="button" class="category-chart-row '+(x.cat===selectedSummaryCategory?'selected':'')+'" data-summary-category="'+esc(x.cat)+'"><span class="category-chart-dot" style="background:'+palette[i%palette.length]+'"></span><span class="category-chart-name">'+esc(x.ic+' '+x.cat)+'</span><strong>'+yen(x.v)+'</strong><span class="category-chart-percent">'+Math.round(x.v/t*100)+'%</span></button>').join("");
