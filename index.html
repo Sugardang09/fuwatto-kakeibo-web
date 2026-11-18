@@ -55,7 +55,7 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:12p
 <div class="card"><div class="section-title">📊 月のまとめ</div><div class="stats"><div class="stat"><span>支出合計</span><b id="sumSpend">¥0</b></div><div class="stat"><span>支出件数</span><b id="sumCount">0件</b></div><div class="stat"><span>予算残額</span><b id="sumRemain">¥0</b></div><div class="stat"><span>予算超過費目</span><b id="sumOver">0費目</b></div></div></div>
 <div class="card"><div class="section-title">🌈 日ごとの支出</div><div id="dailyChart" class="chartbox"></div></div>
 <div class="card"><div class="section-title">🍓 費目別支出</div><div id="categorySummary"></div></div>
-<div class="card"><div class="section-title">📦 データのバックアップ</div><p class="notice">全期間の支出・予算をJSONファイルに保存できます。機種変更やブラウザデータ消去の前にバックアップしてください。</p><button class="btn soft" style="width:100%" id="exportBtn">JSONをバックアップ</button><label for="importFile">バックアップから復元</label><input type="file" id="importFile" accept="application/json,.json"><button class="btn danger" style="width:100%;margin-top:10px" id="clearBtn">全データを削除</button></div>
+<div class="card"><div class="section-title">📦 データのバックアップ</div><p class="notice">全期間の支出・予算をJSONファイルに保存できます。機種変更やブラウザデータ消去の前にバックアップしてください。<strong>バックアップJSONは暗号化されていません。</strong>支出内容がそのまま読めるため、他人に渡したり、共有フォルダに置いたりせず、安全な場所に保管してください。</p><button class="btn soft" style="width:100%" id="exportBtn">JSONをバックアップ</button><label for="importFile">バックアップから復元</label><input type="file" id="importFile" accept="application/json,.json"><button class="btn danger" style="width:100%;margin-top:10px" id="clearBtn">全データを削除</button></div>
 </section>
 </main>
 <button class="fab" id="addBtn" aria-label="支出を追加">＋</button>
@@ -74,8 +74,33 @@ let data={expenses:[],budgets:{}}, current=new Date(), selectedDate=iso(new Date
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function monthKey(d=current){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
 function yen(n){return "¥"+Number(n||0).toLocaleString("ja-JP")}
-function load(){try{let x=JSON.parse(localStorage.getItem(KEY)||"null");if(x&&Array.isArray(x.expenses)&&x.budgets&&typeof x.budgets==="object")data=x}catch(e){alert("保存データを読み込めませんでした。")}}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){alert("保存できませんでした。スマホの空き容量やブラウザ設定をご確認ください。");return false}}
+let storageReadBlocked=false;
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw===null)return;
+    const saved=JSON.parse(raw);
+    if(!validateBackupData(saved)){
+      storageReadBlocked=true;
+      alert("保存データの形式を確認できませんでした。既存データを保護するため、この状態では保存・復元を停止しています。JSONバックアップがあれば、内容を確認してから復元してください。");
+      return;
+    }
+    data={
+      expenses:saved.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",created:Number(x.created||0)})),
+      budgets:Object.fromEntries(Object.entries(saved.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))]))
+    };
+  }catch(e){
+    storageReadBlocked=true;
+    alert("保存データを読み込めませんでした。既存データを保護するため、この状態では保存・復元を停止しています。");
+  }
+}
+function persist(){
+  if(storageReadBlocked){
+    alert("保存データに問題があるため、上書きを停止しています。バックアップの確認または「全データを削除」を選んでください。");
+    return false;
+  }
+  try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){alert("保存できませんでした。スマホの空き容量やブラウザ設定をご確認ください。");return false}
+}
 function monthExpenses(){return data.expenses.filter(x=>x.date.startsWith(monthKey()))}
 function budgetFor(cat){return Number((data.budgets[monthKey()]||{})[cat]||0)}
 function spentFor(cat){return monthExpenses().filter(x=>x.category===cat).reduce((a,x)=>a+x.amount,0)}
@@ -118,7 +143,7 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.
 document.getElementById("dateOpen").onclick=()=>{calDate=new Date(selectedDate+"T12:00:00");calendarRender();openModal("calendarModal")};document.getElementById("calPrev").onclick=()=>{calDate.setDate(1);calDate.setMonth(calDate.getMonth()-1);calendarRender()};document.getElementById("calNext").onclick=()=>{calDate.setDate(1);calDate.setMonth(calDate.getMonth()+1);calendarRender()};document.getElementById("calToday").onclick=()=>{selectedDate=iso(new Date());calDate=new Date();calendarRender()};document.getElementById("calDone").onclick=()=>{document.getElementById("dateOpen").textContent=dateLabel(selectedDate);closeModal("calendarModal")};
 document.getElementById("saveBudget").onclick=()=>{let next={};for(let input of document.querySelectorAll(".budgetInput")){let raw=input.value.replace(/[,\s]/g,"");if(raw==="")raw="0";let n=Number(raw);if(!/^\d+$/.test(raw)||n<0||n>999999999){alert(input.dataset.cat+"の予算は0〜999,999,999円の整数にしてください。");return}next[input.dataset.cat]=n}data.budgets[monthKey()]=next;if(persist())render()};
 document.getElementById("copyBudget").onclick=()=>{let d=new Date(current);d.setDate(1);d.setMonth(d.getMonth()-1);let prev=data.budgets[monthKey(d)];if(!prev){alert("前月の予算設定がありません。");return}document.querySelectorAll(".budgetInput").forEach(i=>i.value=prev[i.dataset.cat]?Number(prev[i.dataset.cat]).toLocaleString("ja-JP"):"")};
-document.getElementById("exportBtn").onclick=()=>{let json=JSON.stringify({version:1,exportedAt:new Date().toISOString(),data},null,2),name=`ふわっと家計簿バックアップ_${iso(new Date())}.json`;if(window.AndroidBridge&&typeof AndroidBridge.saveBackup==="function"){AndroidBridge.saveBackup(json,name);return}let blob=new Blob([json],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+document.getElementById("exportBtn").onclick=()=>{if(storageReadBlocked){alert("保存データに問題があるため、空のバックアップで上書きしないよう、バックアップ作成を停止しています。");return}let json=JSON.stringify({version:1,exportedAt:new Date().toISOString(),data},null,2),name=`ふわっと家計簿バックアップ_${iso(new Date())}.json`;if(window.AndroidBridge&&typeof AndroidBridge.saveBackup==="function"){AndroidBridge.saveBackup(json,name);return}let blob=new Blob([json],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function validateBackupData(d){
   if(!d||!Array.isArray(d.expenses)||!d.budgets||typeof d.budgets!=="object"||Array.isArray(d.budgets))return false;
   const ids=new Set();
@@ -151,6 +176,7 @@ function readBackupFile(file){
 }
 document.getElementById("importFile").onchange=async e=>{
   let f=e.target.files[0];if(!f)return;
+  if(storageReadBlocked){alert("現在の保存データに問題があるため、自動復元を停止しています。先に必要なデータを確認し、復元する場合は「全データを削除」で保存領域を初期化してから操作してください。");e.target.value="";return}
   if(f.size>5*1024*1024){alert("バックアップファイルは5MB以内にしてください。");e.target.value="";return}
   try{
     let raw=await readBackupFile(f);
@@ -162,13 +188,13 @@ document.getElementById("importFile").onchange=async e=>{
   }catch(err){console.error("Backup restore failed:",err);alert("バックアップを読み込めませんでした。JSONの読み込みまたはデータ形式を確認してください。既存データは変更していません。")}
   finally{e.target.value=""}
 };
-document.getElementById("clearBtn").onclick=()=>{if(confirm("すべての支出と予算を削除します。この操作は取り消せません。")){data={expenses:[],budgets:{}};if(persist())render()}};
+document.getElementById("clearBtn").onclick=()=>{if(confirm("すべての支出と予算を削除します。この操作は取り消せません。")){if(storageReadBlocked){try{localStorage.removeItem(KEY);storageReadBlocked=false;data={expenses:[],budgets:{}};render();alert("保存領域を初期化しました。")}catch(e){alert("保存領域を初期化できませんでした。ブラウザ設定をご確認ください。")}return}data={expenses:[],budgets:{}};if(persist())render()}};
 load();render();
 </script>
 <script>
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(err => {
+    navigator.serviceWorker.register("./sw.js", {updateViaCache: "none"}).catch(err => {
       console.error("Service worker registration failed:", err);
     });
   });
