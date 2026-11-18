@@ -1,5 +1,5 @@
-const CACHE_NAME = "fuwatto-kakeibo-web-v1";
 const CACHE_PREFIX = "fuwatto-kakeibo-web-";
+const CACHE_NAME = "fuwatto-kakeibo-web-v2";
 const APP_FILES = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", event => {
@@ -17,26 +17,31 @@ self.addEventListener("activate", event => {
           .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
           .map(key => caches.delete(key))
       )
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  const scope = new URL(self.registration.scope);
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(scope.pathname)) return;
+
   event.respondWith(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
-          if (response && response.ok) {
-            cache.put(event.request, response.clone());
-          }
-          return response;
-        });
-      })
-    )
+    fetch(event.request).then(response => {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+      }
+      return response;
+    }).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      if (event.request.mode === "navigate") {
+        const fallback = await caches.match("./index.html");
+        if (fallback) return fallback;
+      }
+      return Response.error();
+    })
   );
 });
