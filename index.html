@@ -75,7 +75,7 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:12p
 <script>
 const CATS=[["🍱","食費"],["🛍️","日用品"],["🏠","住居費"],["💡","水道・光熱費"],["📱","通信費"],["🚃","交通費"],["💗","交際費"],["🎮","趣味・娯楽費"],["👗","衣服・美容"],["💊","医療・健康"],["📚","教育"],["📦","その他"]];
 const KEY="fuwatto_kakeibo_v1";
-let data={expenses:[],budgets:{}}, current=new Date(), selectedDate=iso(new Date()), calDate=new Date(), editing=null, chosenCat=CATS[0][1], chartWeekStart=startOfWeek(new Date());
+let data={expenses:[],budgets:{},subcategories:{}}, current=new Date(), selectedDate=iso(new Date()), calDate=new Date(), editing=null, chosenCat=CATS[0][1], chosenSubcat="", chartWeekStart=startOfWeek(new Date());
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function monthKey(d=current){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
 function startOfWeek(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
@@ -94,8 +94,9 @@ function load(){
       return;
     }
     data={
-      expenses:saved.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",created:Number(x.created||0)})),
-      budgets:Object.fromEntries(Object.entries(saved.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))]))
+      expenses:saved.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",created:Number(x.created||0),subcategory:x.subcategory||""})),
+      budgets:Object.fromEntries(Object.entries(saved.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))])),
+      subcategories:normalizeSubcategories(saved.subcategories||{})
     };
   }catch(e){
     storageReadBlocked=true;
@@ -109,6 +110,7 @@ function persist(){
   }
   try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){alert("保存できませんでした。スマホの空き容量やブラウザ設定をご確認ください。");return false}
 }
+function normalizeSubcategories(value){const out={};for(const [cat,names] of Object.entries(value||{})){if(CATS.some(c=>c[1]===cat)&&Array.isArray(names))out[cat]=[...new Set(names.filter(n=>typeof n==="string"&&n.trim()).map(n=>n.trim().slice(0,30)))].slice(0,50)}return out}
 function monthExpenses(){return data.expenses.filter(x=>x.date.startsWith(monthKey()))}
 function budgetFor(cat){return Number((data.budgets[monthKey()]||{})[cat]||0)}
 function spentFor(cat){return monthExpenses().filter(x=>x.category===cat).reduce((a,x)=>a+x.amount,0)}
@@ -120,20 +122,23 @@ function render(){document.getElementById("monthLabel").textContent=monthName();
 let bars=CATS.map(([ic,cat])=>{let bud=budgetFor(cat),sp=spentFor(cat),pct=bud?Math.min(100,sp/bud*100):0;return `<div class="budget-row"><div class="budget-head"><span>${ic} ${cat}</span><span>${yen(sp)} / ${bud?yen(bud):"予算なし"}</span></div><div class="bar"><i class="${bud&&sp>bud?"over":""}" style="width:${bud?pct:sp?100:0}%"></i></div></div>`}).join("");document.getElementById("budgetBars").innerHTML=bars;
 let sorted=[...monthExpenses()].sort((a,b)=>b.date.localeCompare(a.date)||b.created-a.created);document.getElementById("recentList").innerHTML=renderRows(sorted.slice(0,5));let list=document.getElementById("expenseList"),mode=document.getElementById("sortMode").value;sorted=mode==="category"?sorted.sort((a,b)=>a.category.localeCompare(b.category)||b.date.localeCompare(a.date)):sorted;list.innerHTML=renderRows(sorted);
 renderBudgetEditor();renderSummary()}
-function renderRows(rows){if(!rows.length)return '<div class="empty">まだ支出がありません 🌷<br>＋から登録してみよう</div>';return rows.map(x=>{let c=CATS.find(z=>z[1]===x.category)||CATS[11];return `<div class="expense"><div class="emoji">${c[0]}</div><div class="details"><b>${esc(x.category)} · ${esc(x.date.slice(5).replace("-","/"))}</b><small>${esc(x.memo||"備考なし")}</small></div><div class="amount">${yen(x.amount)}</div><div class="actions"><button aria-label="編集" data-expense-action="edit" data-expense-id="${esc(x.id)}">✏️</button><button aria-label="削除" data-expense-action="delete" data-expense-id="${esc(x.id)}">🗑️</button></div></div>`}).join("")}
+function renderRows(rows){if(!rows.length)return '<div class="empty">まだ支出がありません 🌷<br>＋から登録してみよう</div>';return rows.map(x=>{let c=CATS.find(z=>z[1]===x.category)||CATS[11];return `<div class="expense"><div class="emoji">${c[0]}</div><div class="details"><b>${esc(x.category)}${x.subcategory?" · "+esc(x.subcategory):""} · ${esc(x.date.slice(5).replace("-","/"))}</b><small>${esc(x.memo||"備考なし")}</small></div><div class="amount">${yen(x.amount)}</div><div class="actions"><button aria-label="編集" data-expense-action="edit" data-expense-id="${esc(x.id)}">✏️</button><button aria-label="削除" data-expense-action="delete" data-expense-id="${esc(x.id)}">🗑️</button></div></div>`}).join("")}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderBudgetEditor(){let box=document.getElementById("budgetEditor");box.innerHTML=CATS.map(([ic,cat])=>`<div class="budget-row"><label>${ic} ${cat}</label><input class="budgetInput" data-cat="${esc(cat)}" type="text" inputmode="numeric" value="${budgetFor(cat)?budgetFor(cat).toLocaleString("ja-JP"):""}" placeholder="予算なし（0円）"></div>`).join("")}
 function renderSummary(){let t=totalSpent(),b=totalBud();document.getElementById("sumSpend").textContent=yen(t);document.getElementById("sumCount").textContent=monthExpenses().length+"件";document.getElementById("sumRemain").textContent=yen(b-t);document.getElementById("sumOver").textContent=CATS.filter(c=>budgetFor(c[1])&&spentFor(c[1])>budgetFor(c[1])).length+"費目";
 const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(chartWeekStart);d.setDate(d.getDate()+i);return d});const weekKeys=weekDates.map(iso);const vals=weekKeys.map(key=>data.expenses.filter(x=>x.date===key).reduce((sum,x)=>sum+x.amount,0));const max=Math.max(...vals,1);const weekEnd=weekDates[6];document.getElementById("chartWeekLabel").textContent=`${weekDateLabel(chartWeekStart)}〜${weekDateLabel(weekEnd)}`;document.getElementById("dailyChart").innerHTML=weekDates.map((d,i)=>`<div class="chartcol"><em>${vals[i]?vals[i].toLocaleString("ja-JP")+"円":""}</em><i style="height:${Math.max(vals[i]?2:0,vals[i]/max*70)}%"></i><small>${d.getDate()}日<br>${"月火水木金土日"[i]}</small></div>`).join("");
 let cats=CATS.map(([ic,cat])=>({ic,cat,v:spentFor(cat)})).filter(x=>x.v).sort((a,b)=>b.v-a.v);document.getElementById("categorySummary").innerHTML=cats.length?cats.map(x=>`<div class="expense"><div class="emoji">${x.ic}</div><div class="details"><b>${x.cat}</b><small>${t?Math.round(x.v/t*100):0}% of total</small></div><div class="amount">${yen(x.v)}</div></div>`).join(""):'<div class="empty">支出が登録されると集計されます</div>'}
-function openEntry(id=null){editing=id;let x=id?data.expenses.find(e=>e.id===id):null;selectedDate=x?x.date:iso(new Date());chosenCat=x?x.category:CATS[0][1];document.getElementById("entryTitle").textContent=x?"支出を編集":"支出を登録";document.getElementById("amount").value=x?x.amount.toLocaleString("ja-JP"):"";document.getElementById("memo").value=x?x.memo:"";document.getElementById("deleteEntry").style.display=x?"block":"none";document.getElementById("dateOpen").textContent=dateLabel(selectedDate);renderPills();openModal("entryModal")}
+function openEntry(id=null){editing=id;let x=id?data.expenses.find(e=>e.id===id):null;selectedDate=x?x.date:iso(new Date());chosenCat=x?x.category:CATS[0][1];chosenSubcat=x?(x.subcategory||""):"";document.getElementById("entryTitle").textContent=x?"支出を編集":"支出を登録";document.getElementById("amount").value=x?x.amount.toLocaleString("ja-JP"):"";document.getElementById("memo").value=x?x.memo:"";document.getElementById("deleteEntry").style.display=x?"block":"none";document.getElementById("dateOpen").textContent=dateLabel(selectedDate);renderPills();renderSubcategoryPills();document.querySelector(".entry-sheet").scrollTop=0;openModal("entryModal");setTimeout(()=>document.getElementById("amount").focus(),100)}
 function dateLabel(s){let d=new Date(s+"T12:00:00");return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${"日月火水木金土"[d.getDay()]}）`}
 function renderPills(){document.getElementById("categoryPills").innerHTML=CATS.map(([ic,cat])=>`<button class="pill ${chosenCat===cat?"selected":""}" onclick="chooseCat('${cat}')">${ic} ${cat}</button>`).join("")}
-function chooseCat(c){chosenCat=c;renderPills()}
+function renderSubcategoryPills(){const names=data.subcategories[chosenCat]||[];const area=document.getElementById("subcategoryArea");area.hidden=!names.length;if(!names.length){chosenSubcat="";return}document.getElementById("subcategoryPills").innerHTML="<button class=\"pill "+(chosenSubcat===""?"selected":"")+"\" onclick=\"chooseSubcat(\'\')\">指定なし</button>"+names.map(n=>"<button class=\"pill "+(chosenSubcat===n?"selected":"")+"\" data-subcat-choice=\""+esc(n)+"\">"+esc(n)+"</button>").join("")}
+function chooseCat(c){chosenCat=c;chosenSubcat="";renderPills();renderSubcategoryPills()}
+function chooseSubcat(n){chosenSubcat=n;renderSubcategoryPills()}
+document.getElementById("subcategoryPills").addEventListener("click",e=>{const b=e.target.closest("[data-subcat-choice]");if(b)chooseSubcat(b.dataset.subcatChoice)});
 function editExpense(id){openEntry(id)}
 function openModal(id){document.getElementById(id).classList.add("open")}
 function closeModal(id){document.getElementById(id).classList.remove("open")}
-function saveEntry(){let raw=document.getElementById("amount").value.replace(/[,\s]/g,"");let amount=Number(raw);if(!/^\d+$/.test(raw)||amount<1||amount>999999999){alert("金額は1円〜999,999,999円の整数で入力してください。");return}let memo=document.getElementById("memo").value;if(memo.length>500){alert("備考は500文字以内にしてください。");return}if(editing){let x=data.expenses.find(e=>e.id===editing);if(x)Object.assign(x,{date:selectedDate,amount,category:chosenCat,memo})}else data.expenses.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),date:selectedDate,amount,category:chosenCat,memo,created:Date.now()});if(persist()){closeModal("entryModal");current=new Date(selectedDate+"T12:00:00");render()}}
+function saveEntry(){let raw=document.getElementById("amount").value.replace(/[,\s]/g,"");let amount=Number(raw);if(!/^\d+$/.test(raw)||amount<1||amount>999999999){alert("金額は1円〜999,999,999円の整数で入力してください。");return}let memo=document.getElementById("memo").value;if(memo.length>500){alert("備考は500文字以内にしてください。");return}if(editing){let x=data.expenses.find(e=>e.id===editing);if(x)Object.assign(x,{date:selectedDate,amount,category:chosenCat,subcategory:chosenSubcat,memo})}else data.expenses.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),date:selectedDate,amount,category:chosenCat,subcategory:chosenSubcat,memo,created:Date.now()});if(persist()){closeModal("entryModal");current=new Date(selectedDate+"T12:00:00");render()}}
 function deleteExpenseById(id){let x=data.expenses.find(e=>e.id===id);if(!x)return;if(confirm(`${x.date}・${x.category}・${yen(x.amount)}を削除しますか？`)){data.expenses=data.expenses.filter(e=>e.id!==id);if(persist())render()}}
 document.addEventListener("click",e=>{
   const button=e.target.closest("[data-expense-action]");
@@ -147,6 +152,7 @@ function calendarRender(){document.getElementById("calMonth").textContent=`${cal
 function selectDay(s){selectedDate=s;calendarRender()}
 function resetChartWeekForMonth(){const today=new Date();chartWeekStart=startOfWeek(current.getFullYear()===today.getFullYear()&&current.getMonth()===today.getMonth()?today:new Date(current.getFullYear(),current.getMonth(),1))}document.getElementById("prevMonth").onclick=()=>{current.setDate(1);current.setMonth(current.getMonth()-1);resetChartWeekForMonth();render()};document.getElementById("nextMonth").onclick=()=>{current.setDate(1);current.setMonth(current.getMonth()+1);resetChartWeekForMonth();render()};document.getElementById("prevChartWeek").onclick=()=>{chartWeekStart=shiftWeek(chartWeekStart,-1);renderSummary()};document.getElementById("nextChartWeek").onclick=()=>{chartWeekStart=shiftWeek(chartWeekStart,1);renderSummary()};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showView(b.dataset.view));document.getElementById("addBtn").onclick=()=>openEntry();document.getElementById("saveEntry").onclick=saveEntry;document.getElementById("deleteEntry").onclick=deleteEntry;document.getElementById("sortMode").onchange=render;
+document.getElementById("amount").addEventListener("input",e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,9);e.target.value=v?Number(v).toLocaleString("ja-JP"):""});
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
 document.getElementById("dateOpen").onclick=()=>{calDate=new Date(selectedDate+"T12:00:00");calendarRender();openModal("calendarModal")};document.getElementById("calPrev").onclick=()=>{calDate.setDate(1);calDate.setMonth(calDate.getMonth()-1);calendarRender()};document.getElementById("calNext").onclick=()=>{calDate.setDate(1);calDate.setMonth(calDate.getMonth()+1);calendarRender()};document.getElementById("calToday").onclick=()=>{selectedDate=iso(new Date());calDate=new Date();calendarRender()};document.getElementById("calDone").onclick=()=>{document.getElementById("dateOpen").textContent=dateLabel(selectedDate);closeModal("calendarModal")};
 document.getElementById("saveBudget").onclick=()=>{let next={};for(let input of document.querySelectorAll(".budgetInput")){let raw=input.value.replace(/[,\s]/g,"");if(raw==="")raw="0";let n=Number(raw);if(!/^\d+$/.test(raw)||n<0||n>999999999){alert(input.dataset.cat+"の予算は0〜999,999,999円の整数にしてください。");return}next[input.dataset.cat]=n}data.budgets[monthKey()]=next;if(persist())render()};
@@ -154,6 +160,7 @@ document.getElementById("copyBudget").onclick=()=>{let d=new Date(current);d.set
 document.getElementById("exportBtn").onclick=()=>{if(storageReadBlocked){alert("保存データに問題があるため、空のバックアップで上書きしないよう、バックアップ作成を停止しています。");return}let json=JSON.stringify({version:1,exportedAt:new Date().toISOString(),data},null,2),name=`ふわっと家計簿バックアップ_${iso(new Date())}.json`;if(window.AndroidBridge&&typeof AndroidBridge.saveBackup==="function"){AndroidBridge.saveBackup(json,name);return}let blob=new Blob([json],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function validateBackupData(d){
   if(!d||!Array.isArray(d.expenses)||!d.budgets||typeof d.budgets!=="object"||Array.isArray(d.budgets))return false;
+  if(d.subcategories!==undefined){if(!d.subcategories||typeof d.subcategories!=="object"||Array.isArray(d.subcategories))return false;for(const [cat,names] of Object.entries(d.subcategories)){if(!CATS.some(c=>c[1]===cat)||!Array.isArray(names)||names.length>50||names.some(n=>typeof n!=="string"||!n.trim()||n.length>30))return false}}
   const ids=new Set();
   for(const x of d.expenses){
     if(!x||typeof x.id!=="string"||!x.id.trim()||ids.has(x.id))return false;
@@ -163,6 +170,7 @@ function validateBackupData(d){
     if(Number.isNaN(dt.getTime())||dt.toISOString().slice(0,10)!==x.date)return false;
     if(!Number.isFinite(Number(x.amount))||!Number.isInteger(Number(x.amount))||Number(x.amount)<1||Number(x.amount)>999999999)return false;
     if(typeof x.category!=="string"||!CATS.some(c=>c[1]===x.category))return false;
+    if(x.subcategory!==undefined&&typeof x.subcategory!=="string")return false;
     if(x.memo!==undefined&&typeof x.memo!=="string")return false;
     if(x.created!==undefined&&!Number.isFinite(Number(x.created)))return false;
   }
@@ -191,12 +199,12 @@ document.getElementById("importFile").onchange=async e=>{
     let obj=JSON.parse(raw.trim()),d=obj.data||obj;
     if(!validateBackupData(d))throw Error("backup structure mismatch");
     if(!confirm(`支出${d.expenses.length}件と予算データで、現在の保存内容を置き換えますか？`))return;
-    data={expenses:d.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||""})),budgets:Object.fromEntries(Object.entries(d.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))]))};
+    data={expenses:d.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",subcategory:x.subcategory||""})),budgets:Object.fromEntries(Object.entries(d.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))])),subcategories:normalizeSubcategories(d.subcategories||{})};
     if(persist()){render();alert("復元しました。")}
   }catch(err){console.error("Backup restore failed:",err);alert("バックアップを読み込めませんでした。JSONの読み込みまたはデータ形式を確認してください。既存データは変更していません。")}
   finally{e.target.value=""}
 };
-document.getElementById("clearBtn").onclick=()=>{if(confirm("すべての支出と予算を削除します。この操作は取り消せません。")){if(storageReadBlocked){try{localStorage.removeItem(KEY);storageReadBlocked=false;data={expenses:[],budgets:{}};render();alert("保存領域を初期化しました。")}catch(e){alert("保存領域を初期化できませんでした。ブラウザ設定をご確認ください。")}return}data={expenses:[],budgets:{}};if(persist())render()}};
+document.getElementById("clearBtn").onclick=()=>{if(confirm("すべての支出と予算を削除します。この操作は取り消せません。")){if(storageReadBlocked){try{localStorage.removeItem(KEY);storageReadBlocked=false;data={expenses:[],budgets:{},subcategories:{}};render();alert("保存領域を初期化しました。")}catch(e){alert("保存領域を初期化できませんでした。ブラウザ設定をご確認ください。")}return}data={expenses:[],budgets:{},subcategories:{}};if(persist())render()}};
 load();render();
 </script>
 <script>
