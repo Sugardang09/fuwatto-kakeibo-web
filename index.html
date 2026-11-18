@@ -72,7 +72,7 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:12p
 <div class="card"><div class="section-title">🍓 費目別支出</div><div id="categorySummary"></div></div>
 </section>
 <section id="settings" class="view">
-<div class="card"><div class="section-title">🏷️ 小項目の設定</div><p class="notice">大項目ごとに「スーパー」「外食」などの小項目を登録できます。登録しなくても今までどおり使えます。</p><label>追加対象の大項目</label><div id="subcatParent" class="pills" role="group" aria-label="小項目を追加する大項目"></div><div class="formrow"><div><label for="subcatName">小項目の名前</label><input id="subcatName" maxlength="30" placeholder="例：スーパー"></div><div style="display:flex;align-items:end"><button class="btn primary" id="addSubcat" style="width:100%">追加</button></div></div><div id="subcatManager" style="margin-top:12px"></div></div>
+<div class="card"><div class="section-title">🏷️ 小項目の設定</div><p class="notice">大項目ごとに小項目を登録できます。たとえば食費なら「スーパー」や「外食」など、使い方に合わせて自由に分けられます。小項目を登録しなくても、これまでどおり大項目だけで支出を管理できます。</p><label>追加対象の大項目</label><div id="subcatParent" class="pills" role="group" aria-label="小項目を追加する大項目"></div><div class="formrow"><div><label for="subcatName">小項目の名前</label><input id="subcatName" maxlength="30" placeholder="例：スーパー"></div><div style="display:flex;align-items:end"><button class="btn primary" id="addSubcat" style="width:100%">追加</button></div></div><div id="subcatManager" style="margin-top:12px"></div></div>
 <div class="card"><div class="section-title">📦 データのバックアップ</div><p class="notice">全期間の支出・予算をJSONファイルに保存できます。機種変更やブラウザデータ消去の前にバックアップしてください。<strong>バックアップJSONは暗号化されていません。</strong>支出内容がそのまま読めるため、他人に渡したり、共有フォルダに置いたりせず、安全な場所に保管してください。</p><button class="btn soft" style="width:100%" id="exportBtn">JSONをバックアップ</button><label for="importFile">バックアップから復元</label><input type="file" id="importFile" accept="application/json,.json"><button class="btn danger" style="width:100%;margin-top:10px" id="clearBtn">全データを削除</button></div>
 </section>
 </main>
@@ -149,9 +149,9 @@ function renderGroupedRows(rows){
    const subtotal=items.reduce((sum,x)=>sum+x.amount,0);
    const rowsHtml=renderRows(items);
    if(subgroups.size===1&&!items[0].subcategory)return rowsHtml;
-   return '<details class="expense-subgroup" open><summary><span>'+esc(name)+'</span><strong>'+yen(subtotal)+'</strong><span class="group-count">'+items.length+'件</span></summary>'+rowsHtml+'</details>';
+   return '<details class="expense-subgroup"><summary><span>'+esc(name)+'</span><strong>'+yen(subtotal)+'</strong><span class="group-count">'+items.length+'件</span></summary>'+rowsHtml+'</details>';
   }).join("");
-  return '<details class="expense-category-group" open><summary><span class="group-category-name">'+ic+' '+esc(cat)+'</span><strong>'+yen(total)+'</strong><span class="group-count">'+group.length+'件</span></summary><div class="expense-category-content">'+content+'</div></details>';
+  return '<details class="expense-category-group"><summary><span class="group-category-name">'+ic+' '+esc(cat)+'</span><strong>'+yen(total)+'</strong><span class="group-count">'+group.length+'件</span></summary><div class="expense-category-content">'+content+'</div></details>';
  }).join("");
 }
 function renderRows(rows){if(!rows.length)return '<div class="empty">まだ支出がありません 🌷<br>＋から登録してみよう</div>';return rows.map(x=>{let c=CATS.find(z=>z[1]===x.category)||CATS[11];return `<div class="expense"><div class="emoji">${c[0]}</div><div class="details"><b>${esc(x.category)}${x.subcategory?" · "+esc(x.subcategory):""} · ${esc(x.date.slice(5).replace("-","/"))}</b><small>${esc(x.memo||"備考なし")}</small></div><div class="amount">${yen(x.amount)}</div><div class="actions"><button aria-label="編集" data-expense-action="edit" data-expense-id="${esc(x.id)}">✏️</button></div></div>`}).join("")}
