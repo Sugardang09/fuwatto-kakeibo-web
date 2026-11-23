@@ -56,18 +56,18 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:12p
 <div class="monthbar"><button id="prevMonth" aria-label="前月">‹</button><strong id="monthLabel"></strong><button id="nextMonth" aria-label="翌月">›</button></div></header>
 <main>
 <section id="home" class="view active">
-<div class="card hero"><div class="caption" id="heroCaption">今月の支出</div><div class="big" id="totalSpend">¥0</div><div class="stats"><div class="stat"><span>予算合計</span><b id="totalBudget">¥0</b></div><div class="stat"><span>予算残額</span><b id="remaining">¥0</b></div></div></div>
-<div class="card"><div class="section-title">🌼 費目ごとの予算と実績 <button class="btn small" onclick="showView('budget')">予算を編集</button></div><div id="budgetBars"></div></div>
+<div class="card hero"><div class="caption" id="heroCaption">今月の支出</div><div class="big" id="totalSpend">¥0</div><div class="stats"><div class="stat"><span id="homeBudgetLabel">予算合計</span><b id="totalBudget">¥0</b></div><div class="stat"><span>予算残額</span><b id="remaining">¥0</b></div></div></div>
+<div class="card"><div class="section-title"><span id="homeBudgetTitle">🌼 費目ごとの予算と実績</span> <button class="btn small" onclick="showView('budget')">予算を編集</button></div><div id="budgetBars"></div></div>
 
 </section>
 <section id="list" class="view">
 <div class="card"><div class="section-title">🧾 支出一覧 <select id="sortMode" style="width:auto;padding:7px"><option value="date">日付順</option><option value="category">費目別</option></select></div><div id="listDateFocus" class="notice" style="display:none;margin:8px 0"></div><div id="expenseList"></div></div>
 </section>
 <section id="budget" class="view">
-<div class="card"><div class="section-title">🎀 月別・費目別の予算設定</div><div class="notice">表示中の月の予算を設定できます。0円は「予算なし」として扱います。</div><div id="budgetEditor"></div><button class="btn primary" style="width:100%;margin-top:12px" id="saveBudget">予算を保存</button><button class="btn soft" style="width:100%;margin-top:8px" id="copyBudget">前月の予算を入力</button></div>
+<div class="card"><div class="section-title">🎀 予算設定</div><div class="notice">予算の管理方法を選択できます。方式を切り替えても、もう一方の予算設定は保存されます。</div><div id="budgetEditor"></div><button class="btn primary" style="width:100%;margin-top:12px" id="saveBudget">予算を保存</button><button class="btn soft" style="width:100%;margin-top:8px" id="copyBudget">前月の予算を入力</button></div>
 </section>
 <section id="summary" class="view">
-<div class="card"><div class="section-title">📊 月のまとめ</div><div class="stats"><div class="stat"><span>支出合計</span><b id="sumSpend">¥0</b></div><div class="stat"><span>支出件数</span><b id="sumCount">0件</b></div><div class="stat"><span>予算残額</span><b id="sumRemain">¥0</b></div><div class="stat"><span>予算超過費目</span><b id="sumOver">0費目</b></div></div></div>
+<div class="card"><div class="section-title">📊 月のまとめ</div><div class="stats"><div class="stat"><span>支出合計</span><b id="sumSpend">¥0</b></div><div class="stat"><span>支出件数</span><b id="sumCount">0件</b></div><div class="stat"><span>予算残額</span><b id="sumRemain">¥0</b></div><div class="stat"><span id="sumOverLabel">予算超過費目</span><b id="sumOver">0費目</b></div></div></div>
 <div class="card"><div class="section-title">🌈 日ごとの支出</div><div class="chart-weekbar"><button id="prevChartWeek" type="button" aria-label="前の週">‹ 前週</button><strong id="chartWeekLabel"></strong><button id="nextChartWeek" type="button" aria-label="次の週">次週 ›</button></div><div id="dailyChart" class="chartbox"></div></div>
 <div class="card"><div class="section-title">🍓 費目別支出</div><div id="categorySummary"></div></div>
 </section>
@@ -90,7 +90,7 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:12p
 <script>
 const CATS=[["🍱","食費"],["🛍️","日用品"],["🏠","住居費"],["💡","水道・光熱費"],["📱","通信費"],["🚃","交通費"],["💗","交際費"],["🎡","趣味・娯楽費"],["👗","衣服・美容"],["💊","医療・健康"],["📚","教育"],["📦","その他"]];
 const KEY="fuwatto_kakeibo_v1";
-let selectedSummaryCategory="", data={expenses:[],budgets:{},subcategories:{}}, current=new Date(), selectedDate=iso(new Date()), calDate=new Date(), editing=null, chosenCat=CATS[0][1], chosenSubcat="", chartWeekStart=startOfWeek(new Date());
+let selectedSummaryCategory="", data={expenses:[],budgets:{},subcategories:{},budgetMode:"category",totalBudgets:{}}, current=new Date(), selectedDate=iso(new Date()), calDate=new Date(), editing=null, chosenCat=CATS[0][1], chosenSubcat="", chartWeekStart=startOfWeek(new Date());
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function monthKey(d=current){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
 function startOfWeek(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
@@ -111,7 +111,9 @@ function load(){
     data={
       expenses:saved.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",created:Number(x.created||0),subcategory:x.subcategory||""})),
       budgets:Object.fromEntries(Object.entries(saved.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))])),
-      subcategories:normalizeSubcategories(saved.subcategories||{})
+      subcategories:normalizeSubcategories(saved.subcategories||{}),
+      budgetMode:saved.budgetMode==="total"?"total":"category",
+      totalBudgets:normalizeTotalBudgets(saved.totalBudgets||{})
     };
   }catch(e){
     storageReadBlocked=true;
@@ -128,13 +130,16 @@ function persist(){
 function normalizeSubcategories(value){const out={};for(const [cat,names] of Object.entries(value||{})){if(CATS.some(c=>c[1]===cat)&&Array.isArray(names))out[cat]=[...new Set(names.filter(n=>typeof n==="string"&&n.trim()).map(n=>n.trim().slice(0,30)))].slice(0,50)}return out}
 function monthExpenses(){return data.expenses.filter(x=>x.date.startsWith(monthKey()))}
 function budgetFor(cat){return Number((data.budgets[monthKey()]||{})[cat]||0)}
+function totalBudgetFor(month=monthKey()){return Number(data.totalBudgets[month]||0)}
+function normalizeTotalBudgets(value){const out={};for(const [month,n] of Object.entries(value||{})){if(/^\d{4}-(0[1-9]|1[0-2])$/.test(month)&&Number.isInteger(Number(n))&&Number(n)>=0&&Number(n)<=999999999)out[month]=Number(n)}return out}
 function spentFor(cat){return monthExpenses().filter(x=>x.category===cat).reduce((a,x)=>a+x.amount,0)}
 function totalSpent(){return monthExpenses().reduce((a,x)=>a+x.amount,0)}
-function totalBud(){return CATS.reduce((a,c)=>a+budgetFor(c[1]),0)}
+function totalBud(){return data.budgetMode==="total"?totalBudgetFor():CATS.reduce((a,c)=>a+budgetFor(c[1]),0)}
 function monthName(){return `${current.getFullYear()}年${current.getMonth()+1}月`}
 function showView(v){document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===v));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.view===v));document.querySelector(".monthbar").style.display=v==="settings"?"none":"";document.getElementById("addBtn").style.display=(v==="budget"||v==="settings")?"none":"block";render()}
 function render(){document.getElementById("monthLabel").textContent=monthName();let t=totalSpent(),b=totalBud();document.getElementById("totalSpend").textContent=yen(t);document.getElementById("totalBudget").textContent=yen(b);document.getElementById("remaining").textContent=yen(b-t);document.getElementById("heroCaption").textContent=current.getTime()>new Date().getTime()?"今月の支出":"月の支出";
-let bars=CATS.map(([ic,cat])=>{let bud=budgetFor(cat),sp=spentFor(cat),pct=bud?Math.min(100,sp/bud*100):0;return `<div class="budget-row"><div class="budget-head"><span>${ic} ${cat}</span><span>${yen(sp)} / ${bud?yen(bud):"予算なし"}</span></div><div class="bar"><i class="${bud&&sp>bud?"over":""}" style="width:${bud?pct:sp?100:0}%"></i></div></div>`}).join("");document.getElementById("budgetBars").innerHTML=bars;
+document.getElementById("homeBudgetLabel").textContent=data.budgetMode==="total"?"月合計予算":"予算合計";document.getElementById("homeBudgetTitle").textContent=data.budgetMode==="total"?"🌼 月合計予算の進捗":"🌼 費目ごとの予算と実績";
+let bars;if(data.budgetMode==="total"){const bud=totalBudgetFor(),pct=bud?Math.min(100,t/bud*100):0;bars=`<div class="budget-row"><div class="budget-head"><span>今月の支出</span><span>${yen(t)} / ${bud?yen(bud):"予算未設定"}</span></div><div class="bar"><i class="${bud&&t>bud?"over":""}" style="width:${bud?pct:0}%"></i></div><div class="notice" style="margin-top:7px">${bud?(t>bud?"予算を"+yen(t-bud)+"超過しています":"予算の"+Math.round(t/bud*100)+"%を使用中"):"予算を設定すると進捗を確認できます"}</div></div>`}else{bars=CATS.map(([ic,cat])=>{let bud=budgetFor(cat),sp=spentFor(cat),pct=bud?Math.min(100,sp/bud*100):0;return `<div class="budget-row"><div class="budget-head"><span>${ic} ${cat}</span><span>${yen(sp)} / ${bud?yen(bud):"予算なし"}</span></div><div class="bar"><i class="${bud&&sp>bud?"over":""}" style="width:${bud?pct:sp?100:0}%"></i></div></div>`}).join("")}document.getElementById("budgetBars").innerHTML=bars;
 let sorted=[...monthExpenses()].sort((a,b)=>b.date.localeCompare(a.date)||b.created-a.created);let list=document.getElementById("expenseList"),mode=document.getElementById("sortMode").value;list.innerHTML=mode==="category"?renderGroupedRows(sorted):renderRows(sorted);
 renderBudgetEditor();renderSubcategoryManager();renderSummary()}
 function goToExpenseDate(date){
@@ -173,8 +178,8 @@ function renderGroupedRows(rows){
 }
 function renderRows(rows){if(!rows.length)return '<div class="empty">まだ支出がありません 🌷<br>＋から登録してみよう</div>';return rows.map(x=>{let c=CATS.find(z=>z[1]===x.category)||CATS[11];return `<div class="expense" data-expense-date="${esc(x.date)}"><div class="emoji">${c[0]}</div><div class="details"><b>${esc(x.category)}${x.subcategory?" · "+esc(x.subcategory):""} · ${esc(x.date.slice(5).replace("-","/"))}</b><small>${esc(x.memo||"備考なし")}</small></div><div class="amount">${yen(x.amount)}</div><div class="actions"><button aria-label="編集" data-expense-action="edit" data-expense-id="${esc(x.id)}">✏️</button></div></div>`}).join("")}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function renderBudgetEditor(){let box=document.getElementById("budgetEditor");box.innerHTML=CATS.map(([ic,cat])=>`<div class="budget-row"><label>${ic} ${cat}</label><input class="budgetInput" data-cat="${esc(cat)}" type="text" inputmode="numeric" value="${budgetFor(cat)?budgetFor(cat).toLocaleString("ja-JP"):""}" placeholder="予算なし（0円）"></div>`).join("")}
-function renderSummary(){let t=totalSpent(),b=totalBud();document.getElementById("sumSpend").textContent=yen(t);document.getElementById("sumCount").textContent=monthExpenses().length+"件";document.getElementById("sumRemain").textContent=yen(b-t);document.getElementById("sumOver").textContent=CATS.filter(c=>budgetFor(c[1])&&spentFor(c[1])>budgetFor(c[1])).length+"費目";
+function renderBudgetEditor(){let box=document.getElementById("budgetEditor");const total=data.budgetMode==="total";box.innerHTML='<div class="pills" role="group" aria-label="予算管理方法" style="margin:12px 0"><button type="button" class="pill '+(!total?'selected':'')+'" onclick="setBudgetMode(\'category\')">🏷️ 費目別予算</button><button type="button" class="pill '+(total?'selected':'')+'" onclick="setBudgetMode(\'total\')">💰 月合計予算</button></div>'+(total?'<div class="budget-row"><label for="totalBudgetInput">月合計予算（円）</label><input id="totalBudgetInput" type="text" inputmode="numeric" value="'+(totalBudgetFor()?totalBudgetFor().toLocaleString("ja-JP"):'')+'" placeholder="例：150,000"></div><div class="notice">この月に使う金額の上限を設定します。すべての費目の支出が合算されます。</div>':CATS.map(([ic,cat])=>`<div class="budget-row"><label>${ic} ${cat}</label><input class="budgetInput" data-cat="${esc(cat)}" type="text" inputmode="numeric" value="${budgetFor(cat)?budgetFor(cat).toLocaleString("ja-JP"):""}" placeholder="予算なし（0円）"></div>`).join(""));document.getElementById("saveBudget").textContent=total?"月合計予算を保存":"費目別予算を保存"}
+function renderSummary(){let t=totalSpent(),b=totalBud();document.getElementById("sumSpend").textContent=yen(t);document.getElementById("sumCount").textContent=monthExpenses().length+"件";document.getElementById("sumRemain").textContent=yen(b-t);if(data.budgetMode==="total"){document.getElementById("sumOverLabel").textContent="予算状況";document.getElementById("sumOver").textContent=b===0?"未設定":t>b?"予算超過":"予算内"}else{document.getElementById("sumOverLabel").textContent="予算超過費目";document.getElementById("sumOver").textContent=CATS.filter(c=>budgetFor(c[1])&&spentFor(c[1])>budgetFor(c[1])).length+"費目"}
 const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(chartWeekStart);d.setDate(d.getDate()+i);return d});const weekKeys=weekDates.map(iso);const vals=weekKeys.map(key=>data.expenses.filter(x=>x.date===key).reduce((sum,x)=>sum+x.amount,0));const max=Math.max(...vals,1);const weekEnd=weekDates[6];document.getElementById("chartWeekLabel").textContent=`${weekDateLabel(chartWeekStart)}〜${weekDateLabel(weekEnd)}`;document.getElementById("dailyChart").innerHTML=weekDates.map((d,i)=>{const key=weekKeys[i];return `<button type="button" class="chartcol" data-chart-date="${key}" aria-label="${d.getMonth()+1}月${d.getDate()}日の支出 ${yen(vals[i])}"><em>${vals[i]?vals[i].toLocaleString("ja-JP")+"円":""}</em><i style="height:${Math.max(vals[i]?2:0,vals[i]/max*70)}%"></i><small>${d.getDate()}日<br>${"月火水木金土日"[i]}</small></button>`}).join("");
 let cats=CATS.map(([ic,cat])=>({ic,cat,v:spentFor(cat)})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
 const palette=["#B58AB5","#E5B8A4","#A7B9A0","#E8C96F","#91AFC1","#D49AA8","#B6A58C","#9C9BC6","#C3B5A0","#8FB8AD","#D6A875","#A9A9A9"];
@@ -248,13 +253,14 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showView(b.dataset.vi
 document.getElementById("amount").addEventListener("input",e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,9);e.target.value=v?Number(v).toLocaleString("ja-JP"):""});
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)}));
 document.getElementById("dateOpen").onclick=()=>{calDate=new Date(selectedDate+"T12:00:00");calendarRender();openModal("calendarModal")};document.getElementById("calPrev").onclick=()=>{calDate.setDate(1);calDate.setMonth(calDate.getMonth()-1);calendarRender()};document.getElementById("calNext").onclick=()=>{calDate.setDate(1);calDate.setMonth(calDate.getMonth()+1);calendarRender()};document.getElementById("calToday").onclick=()=>{selectedDate=iso(new Date());calDate=new Date();calendarRender()};document.getElementById("calDone").onclick=()=>{document.getElementById("dateOpen").textContent=dateLabel(selectedDate);closeModal("calendarModal")};
-document.getElementById("saveBudget").onclick=()=>{let next={};for(let input of document.querySelectorAll(".budgetInput")){let raw=input.value.replace(/[,\s]/g,"");if(raw==="")raw="0";let n=Number(raw);if(!/^\d+$/.test(raw)||n<0||n>999999999){alert(input.dataset.cat+"の予算は0〜999,999,999円の整数にしてください。");return}next[input.dataset.cat]=n}data.budgets[monthKey()]=next;if(persist())render()};
+document.getElementById("saveBudget").onclick=()=>{if(data.budgetMode==="total"){const input=document.getElementById("totalBudgetInput");let raw=input.value.replace(/[ ,\\s]/g,"");if(raw==="")raw="0";let n=Number(raw);if(!/^\\d+$/.test(raw)||n<0||n>999999999){alert("月合計予算は0〜999,999,999円の整数にしてください。");return}data.totalBudgets[monthKey()]=n}else{let next={};for(let input of document.querySelectorAll(".budgetInput")){let raw=input.value.replace(/[ ,\\s]/g,"");if(raw==="")raw="0";let n=Number(raw);if(!/^\\d+$/.test(raw)||n<0||n>999999999){alert(input.dataset.cat+"の予算は0〜999,999,999円の整数にしてください。");return}next[input.dataset.cat]=n}data.budgets[monthKey()]=next}if(persist())render()};
+function setBudgetMode(mode){if(!["category","total"].includes(mode)||mode===data.budgetMode)return;const label=mode==="total"?"月合計予算":"費目別予算";if(!confirm("予算管理方法を「"+label+"」に変更しますか？\\n現在の方式の予算設定は保存され、いつでも戻せます。"))return;data.budgetMode=mode;if(persist())render()}
 let selectedSubcatParent=CATS[0][1];
 function renderSubcategoryManager(){const parent=document.getElementById("subcatParent");parent.innerHTML=CATS.map(([ic,cat])=>"<button type=\"button\" class=\"pill "+(selectedSubcatParent===cat?"selected":"")+"\" data-subcat-parent=\""+esc(cat)+"\">"+ic+" "+esc(cat)+"</button>").join("");const names=data.subcategories[selectedSubcatParent]||[];document.getElementById("subcatManager").innerHTML=names.length?names.map(n=>"<span class=\"subcat-chip\">"+esc(n)+"<button type=\"button\" aria-label=\"小項目を削除\" data-remove-subcat=\""+esc(n)+"\">×</button></span>").join(""):"<div class=\"empty\">小項目はまだありません</div>"}
 document.getElementById("subcatParent").addEventListener("click",e=>{const btn=e.target.closest("[data-subcat-parent]");if(!btn)return;selectedSubcatParent=btn.dataset.subcatParent;renderSubcategoryManager()});
 document.getElementById("addSubcat").onclick=()=>{const cat=selectedSubcatParent,name=document.getElementById("subcatName").value.trim();if(!name){alert("小項目名を入力してください。");return}const names=data.subcategories[cat]||[];if(names.includes(name)){alert("同じ小項目がすでにあります。");return}if(names.length>=50){alert("1つの大項目に登録できる小項目は50個までです。");return}names.push(name);data.subcategories[cat]=names;if(persist()){document.getElementById("subcatName").value="";renderSubcategoryManager();if(chosenCat===cat)renderSubcategoryPills()}};
 document.getElementById("subcatManager").addEventListener("click",e=>{const btn=e.target.closest("[data-remove-subcat]");if(!btn)return;const cat=selectedSubcatParent,name=btn.dataset.removeSubcat;if(!confirm("「"+name+"」を選択肢から削除しますか？過去の支出に記録された小項目名は残ります。"))return;data.subcategories[cat]=(data.subcategories[cat]||[]).filter(n=>n!==name);if(persist()){renderSubcategoryManager();if(chosenCat===cat)renderSubcategoryPills()}});
-document.getElementById("copyBudget").onclick=()=>{let d=new Date(current);d.setDate(1);d.setMonth(d.getMonth()-1);let prev=data.budgets[monthKey(d)];if(!prev){alert("前月の予算設定がありません。");return}document.querySelectorAll(".budgetInput").forEach(i=>i.value=prev[i.dataset.cat]?Number(prev[i.dataset.cat]).toLocaleString("ja-JP"):"")};
+document.getElementById("copyBudget").onclick=()=>{let d=new Date(current);d.setDate(1);d.setMonth(d.getMonth()-1);const prevMonth=monthKey(d);if(data.budgetMode==="total"){if(data.totalBudgets[prevMonth]===undefined){alert("前月の月合計予算がありません。");return}document.getElementById("totalBudgetInput").value=data.totalBudgets[prevMonth]?Number(data.totalBudgets[prevMonth]).toLocaleString("ja-JP"):""}else{let prev=data.budgets[prevMonth];if(!prev){alert("前月の予算設定がありません。");return}document.querySelectorAll(".budgetInput").forEach(i=>i.value=prev[i.dataset.cat]?Number(prev[i.dataset.cat]).toLocaleString("ja-JP"):"")}};
 document.getElementById("exportBtn").onclick=()=>{if(storageReadBlocked){alert("保存データに問題があるため、空のバックアップで上書きしないよう、バックアップ作成を停止しています。");return}let json=JSON.stringify({version:1,exportedAt:new Date().toISOString(),data},null,2),name=`ふわっと家計簿バックアップ_${iso(new Date())}.json`;if(window.AndroidBridge&&typeof AndroidBridge.saveBackup==="function"){AndroidBridge.saveBackup(json,name);return}let blob=new Blob([json],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 function validateBackupData(d){
   if(!d||!Array.isArray(d.expenses)||!d.budgets||typeof d.budgets!=="object"||Array.isArray(d.budgets))return false;
@@ -272,6 +278,8 @@ function validateBackupData(d){
     if(x.memo!==undefined&&typeof x.memo!=="string")return false;
     if(x.created!==undefined&&!Number.isFinite(Number(x.created)))return false;
   }
+  if(d.budgetMode!==undefined&&d.budgetMode!=="category"&&d.budgetMode!=="total")return false;
+  if(d.totalBudgets!==undefined){if(!d.totalBudgets||typeof d.totalBudgets!=="object"||Array.isArray(d.totalBudgets))return false;for(const [month,value] of Object.entries(d.totalBudgets)){if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!Number.isFinite(Number(value))||!Number.isInteger(Number(value))||Number(value)<0||Number(value)>999999999)return false}}
   for(const [month,values] of Object.entries(d.budgets)){
     if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||!values||typeof values!=="object"||Array.isArray(values))return false;
     for(const [cat,value] of Object.entries(values)){
@@ -297,12 +305,12 @@ document.getElementById("importFile").onchange=async e=>{
     let obj=JSON.parse(raw.trim()),d=obj.data||obj;
     if(!validateBackupData(d))throw Error("backup structure mismatch");
     if(!confirm(`支出${d.expenses.length}件と予算データで、現在の保存内容を置き換えますか？`))return;
-    data={expenses:d.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",subcategory:x.subcategory||""})),budgets:Object.fromEntries(Object.entries(d.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))])),subcategories:normalizeSubcategories(d.subcategories||{})};
+    data={expenses:d.expenses.map(x=>({...x,amount:Number(x.amount),memo:x.memo||"",subcategory:x.subcategory||""})),budgets:Object.fromEntries(Object.entries(d.budgets).map(([m,v])=>[m,Object.fromEntries(Object.entries(v).map(([k,n])=>[k,Number(n)]))])),subcategories:normalizeSubcategories(d.subcategories||{}),budgetMode:d.budgetMode==="total"?"total":"category",totalBudgets:normalizeTotalBudgets(d.totalBudgets||{})};
     if(persist()){render();alert("復元しました。")}
   }catch(err){console.error("Backup restore failed:",err);alert("バックアップを読み込めませんでした。JSONの読み込みまたはデータ形式を確認してください。既存データは変更していません。")}
   finally{e.target.value=""}
 };
-document.getElementById("clearBtn").onclick=()=>{if(confirm("すべての支出と予算を削除します。この操作は取り消せません。")){if(storageReadBlocked){try{localStorage.removeItem(KEY);storageReadBlocked=false;data={expenses:[],budgets:{},subcategories:{}};render();alert("保存領域を初期化しました。")}catch(e){alert("保存領域を初期化できませんでした。ブラウザ設定をご確認ください。")}return}data={expenses:[],budgets:{},subcategories:{}};if(persist())render()}};
+document.getElementById("clearBtn").onclick=()=>{if(confirm("すべての支出と予算を削除します。この操作は取り消せません。")){if(storageReadBlocked){try{localStorage.removeItem(KEY);storageReadBlocked=false;data={expenses:[],budgets:{},subcategories:{},budgetMode:"category",totalBudgets:{}};render();alert("保存領域を初期化しました。")}catch(e){alert("保存領域を初期化できませんでした。ブラウザ設定をご確認ください。")}return}data={expenses:[],budgets:{},subcategories:{},budgetMode:"category",totalBudgets:{}};if(persist())render()}};
 load();render();
 </script>
 <script>
